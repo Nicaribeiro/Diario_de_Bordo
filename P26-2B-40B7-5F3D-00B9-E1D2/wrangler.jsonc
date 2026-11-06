@@ -6,7 +6,7 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "db-p26-2b-40b7-5f3d-00b9-e1d2",
+       "database_name": "db-p26-2b-40b7-5f3d-00b9-e1d2",
       "database_id": "a8041738-f490-48d5-ac49-35fca3ef3783"
     }
   ]
