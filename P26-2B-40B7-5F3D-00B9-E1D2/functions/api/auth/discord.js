@@ -1,6 +1,7 @@
 /**
  * Cloudflare Pages Function — /api/auth/discord
- * Endpoint de autenticação OAuth2 do Discord (importa user_id, username e avatar).
+ * Inicia o login OAuth2 do Discord (importa user_id, username e avatar).
+ * Gera um "state" aleatório para proteger contra login forjado (CSRF).
  */
 export async function onRequestGet(context) {
   const { request, env } = context;
@@ -9,9 +10,12 @@ export async function onRequestGet(context) {
   if (!env.DISCORD_CLIENT_ID) {
     return Response.json({
       configured: false,
-      message: "Defina DISCORD_CLIENT_ID e DISCORD_CLIENT_SECRET nas variáveis do Cloudflare Pages para login real, ou utilize o perfil de sessão local durante o diagnóstico.",
+      message: "Defina DISCORD_CLIENT_ID e DISCORD_CLIENT_SECRET nas variáveis do Cloudflare Pages.",
     });
   }
+
+  // 1. Valor aleatório, impossível de adivinhar, único a cada tentativa de login
+  const state = crypto.randomUUID();
 
   const redirectUri = new URL("/api/auth/discord/callback", url.origin).href;
   const authorizeUrl = new URL("https://discord.com/api/oauth2/authorize");
@@ -20,5 +24,20 @@ export async function onRequestGet(context) {
   authorizeUrl.searchParams.set("response_type", "code");
   authorizeUrl.searchParams.set("scope", "identify");
 
-  return Response.redirect(authorizeUrl.href, 302);
+  // 2. O Discord devolve este mesmo valor na volta
+  authorizeUrl.searchParams.set("state", state);
+
+  // 3. Guardamos uma cópia no navegador, num cookie que o JavaScript da página não lê
+  //    (HttpOnly), só vale por HTTPS (Secure) e expira em 10 minutos
+  const cookie = `oauth_state=${state}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600`;
+
+  // 4. Redirecionamos com DOIS cabeçalhos. Response.redirect() não permite
+  //    cookie, por isso montamos a resposta à mão.
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: authorizeUrl.href,
+      "Set-Cookie": cookie,
+    },
+  });
 }
