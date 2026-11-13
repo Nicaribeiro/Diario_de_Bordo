@@ -1,3 +1,4 @@
+import { getCookie, verifySession } from "../../lib/session.js";
 /**
  * Cloudflare Pages Function — /api/status
  * Verifica conectividade com o Cloudflare D1, sessão Discord OAuth2 e permite registrar pings de diagnóstico.
@@ -8,14 +9,10 @@ export async function onRequest(context) {
   const projectId = 14;
   const projectTitle = "Diário de Bordo de Projetos";
 
-  // Lê sessão real do Discord a partir do cookie HttpOnly se autenticado
-  const cookieHeader = request.headers.get("Cookie") || "";
-  let sessionUser = null;
-  const sessionMatch = cookieHeader.match(/discord_session=([^;]+)/);
-  if (sessionMatch) {
-    try {
-      sessionUser = JSON.parse(decodeURIComponent(atob(sessionMatch[1])));
-    } catch {}
+   let sessionUser = null;
+  const token = getCookie(request, "discord_session");
+  if (token && env.SESSION_SECRET) {
+    sessionUser = await verifySession(token, env.SESSION_SECRET);
   }
 
   if (request.method === "GET") {
